@@ -118,4 +118,119 @@ The control group has relatively constant observation values whereas the experim
 
 # Problem 3
 
+Generated a function to simulate data and extract 'beta1_hat' and 'pval' estimates in a tibble.
+
+parameters:
+n = 30
+xi drawn from standard normal N[0,1]
+beta0 = 2
+beta1 = 0
+error ~ N[0, 50]
+
+```{r}
+
+sim_regression = function(n = 30, beta0 = 2, beta1 = 0) {
+  
+  sim_data = tibble(
+    x = rnorm(n, mean = 0, sd = 1),
+    y = beta0 + beta1 * x + rnorm(n, mean = 0, sd = sqrt(50))
+  )
+  
+  ls_fit = lm(y ~ x, data = sim_data)
+  
+  tidy_ls = broom::tidy(ls_fit) %>% 
+    filter(term == "x") %>% 
+    as.list()
+    
+  tibble(
+    beta1_hat = tidy_ls[[2]],
+    pval = tidy_ls[[5]]
+  )
+
+}
+
+```
+
+Reran simulation 10000 times:
+
+```{r}
+
+sim_b0 <- rerun(10000, sim_regression()) %>% 
+  bind_rows()
+
+```
+
+Reran the above for β1={1,2,3,4,5,6}:
+
+```{r}
+
+b1s <- c(1,2,3,4,5,6)
+
+allbetas <- vector("list", length = 6)
+
+for (i in 1:6) {
+  allbetas[[i]] <- rerun(10000, sim_regression(beta1 = b1s[[i]]))
+}
+
+allbetas_df <- tibble(
+  b_1 = allbetas[[1]],
+  b_2 = allbetas[[2]],
+  b_3 = allbetas[[3]],
+  b_4 = allbetas[[4]],
+  b_5 = allbetas[[5]],
+  b_6 = allbetas[[6]]
+) %>% 
+  pivot_longer(b_1:b_6, 
+               names_to = "beta1_val", 
+               values_to = "sim") %>% 
+  unnest(cols = "sim") %>% 
+  mutate(beta1_val = str_remove(beta1_val, pattern = "b_"))
+
+# combine with beta1 = 0 simulation:
+
+sim_b0 <- sim_b0 %>% 
+  mutate(beta1_val = rep(0, times = nrow(sim_b0))) %>% 
+  select(beta1_val, beta1_hat, pval)
+
+allbetas_df <- rbind(sim_b0, allbetas_df)
+
+```
+
+Plotting results showing proportion of times the null is rejected (alpha < 0.05) given the effect size.
+
+```{r}
+
+allbetas_df %>% 
+  group_by(beta1_val) %>% 
+  filter(pval < 0.05) %>% 
+  summarise(n = n(),
+            proportion = n/10000) %>% 
+  ggplot(aes(x = beta1_val, y = proportion)) + 
+  geom_col() +
+  labs(title = "Proportion Rejected Null given an Effect Size",
+       x = "Effect size (beta1 value)",
+       y = "Proportion (alpha < 0.05)")
+
+```
+
+If the effect size is small, the power to reject the null hypothesis is lower. With large effect sizes there will be enough power such that the null hypothesis is almost always rejected.
+
+Plot showing the typical estimate of beta1 compared to its true value, colored by whether the null was rejected or not:
+
+```{r}
+
+allbetas_df %>% 
+  mutate(rejected_null = (pval < 0.05)) %>% 
+  ggplot(aes(x = beta1_val, y = beta1_hat, color = rejected_null)) +
+  geom_boxplot() +
+  labs(title = "Comparison of Estimated vs Actual Beta1 Values",
+       x = "True Beta1 Value",
+       y = "Estimated Beta1 Value") +
+  scale_y_continuous(breaks = c(-6,-4,-2,0,2,4,6,8,10,12,14))
+
+```
+
+The estimated value of beta1 across the tests where the null is rejected are not approximately equal to the true value of beta1 for all beta1s. When the true effect size is small, instances where the null is rejected either over or underestimate the true value of the effect size. As the effect size increases, the rejected null effect size estimates approach the true effect size value, whereas the cases where the null is not rejected tend to underestimate the magnitude of the effect.
+
+The reason the rejected null cases tend to more closely approximate the effect size when the effect size is large is because statistical power and p value calculations are dependent on both the sample size and the size of the effect. A larger effect size is more easily detected given the same sample size. Increasing the sample size will improve estimates of the effect size in cases of small effect size only because it will increase the number of cases that are found to be significant and the mean of the distribution of those cases will approach the true value of the effect size.
 
