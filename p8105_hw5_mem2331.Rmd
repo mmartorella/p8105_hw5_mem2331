@@ -70,4 +70,32 @@ map(iris_with_missing, fix_iris)
 
 # Problem 2
 
+This zip file contains data from a longitudinal study that included a control arm and an experimental arm. Data for each participant is included in a separate file, and file names include the subject ID and arm.
 
+Create a tidy dataframe containing data from all participants, including the subject ID, arm, and observations over time:
+
+Start with a dataframe containing all file names; the list.files function will help
+Iterate over file names and read in data for each subject using purrr::map and saving the result as a new variable in the dataframe
+
+
+```{r}
+
+files <- tibble(
+  file_name = list.files(path = "data/data_2", full.names = TRUE))
+
+study <- 
+  files %>% 
+  mutate(
+    file_data = map(file_name, read_csv)
+  ) %>% 
+  unnest(cols = file_data) %>% 
+  pivot_longer(
+    week_1:week_8,
+    names_to = "week",
+    values_to = "observation"
+  )
+
+
+```
+Tidy the result; manipulate file names to include control arm and subject ID, make sure weekly observations are “tidy”, and do any other tidying that’s necessary
+Make a spaghetti plot showing observations on each subject over time, and comment on differences between groups.
