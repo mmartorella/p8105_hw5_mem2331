@@ -47,12 +47,14 @@ fix_iris <- function(column_to_fix){
     
     col_mean = mean(column_to_fix, na.rm = TRUE)
     new_num_column = replace_na(column_to_fix, col_mean)
+    return(new_num_column)
     
   } else if (is.character(column_to_fix)) {
     
     new_char_column = replace_na(column_to_fix, "virginica")
+    return(new_char_column)
     
-  } else if (!is.numeric(column_to_fix) | !is.character(column_to_fix)) {
+  } else {
     stop("Column vector must be numeric or character class.")
   }
   
